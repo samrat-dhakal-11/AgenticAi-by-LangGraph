@@ -87,7 +87,7 @@ for thread_id in st.session_state['chat_threads'][::-1]:
 #loading the conversation history
 for msg in st.session_state['msg_history']:
     with st.chat_message(msg['role'],avatar=msg['avatar']):
-        st.text(msg['content'])
+        st.markdown(msg['content'])
     
 
 user_input=st.chat_input('Enter your query')
@@ -99,6 +99,14 @@ if user_input:
         clean_title = user_input[:28] + "..." if len(user_input) > 28 else user_input
         st.session_state['chat_titles'][current_thread] = clean_title
 
+    CONFIG={
+        'configurable':{'thread_id':st.session_state['thread_id']},
+        'metadata':{ 
+            'thread_id':st.session_state['thread_id']
+                },
+        'run_name':'chat_turn',
+        }
+    
     #adding that  user msg to msg_history
     st.session_state['msg_history'].append({'role':'user','content':user_input,'avatar':'🧑'})
     with st.chat_message('user',avatar='🧑'):
@@ -110,9 +118,9 @@ if user_input:
             def generate_chat_response():
                 stream_data=chatbot.stream(
                     {'messages':[HumanMessage(content=user_input)]},
-                    config={'configurable':{'thread_id':st.session_state['thread_id']}}, 
-                    stream_mode='messages'
-                )
+                    config=CONFIG, #type:ignore
+                    stream_mode='messages' 
+                    )
                 for message_chunk,metadata in stream_data:
                     if message_chunk.content: #type:ignore
                         if isinstance(message_chunk.content, str): #type:ignore
