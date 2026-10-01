@@ -1,4 +1,7 @@
+.agent
 .venv
 .env
 __pycache__
 chatbot.db
+chatbot_langgraph.db
+mcp_based_db.db
