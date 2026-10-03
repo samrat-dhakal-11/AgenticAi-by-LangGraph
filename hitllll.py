@@ -94,7 +94,7 @@ if __name__ == "__main__":
     while True:
         config = {'configurable': {'thread_id': 'thread_123'}}
         user_input = input("You: ")
-        if user_input.lower().strip() in {"exit", "quit"}:
+        if user_input.lower().strip() in {"exit", "quit","end","bye"}:
             print("Goodbye!")
             break
 
@@ -124,3 +124,4 @@ if __name__ == "__main__":
         messages = result["messages"]
         last_msg = messages[-1]
         print(f"Bot: {last_msg.content}\n")
+        
