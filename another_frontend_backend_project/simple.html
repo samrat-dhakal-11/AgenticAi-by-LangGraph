@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FastAPI + GenAI Frontend</title>
+    <style>
+        body { height: 100vh; font-family: Arial, sans-serif; margin: 50px; background-color: #f4f4f9;display: flex;justify-content: center;align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 8px; width: 400px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input { width: 70%; padding: 8px; margin-right: 5px; }
+        button { padding: 8px 15px; cursor: pointer; }
+        #output { margin-top: 15px; padding: 10px; background: #eef; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>My AI Chat Frontend</h2>
+        <input type="text" id="userInput" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+        
+        <div id="output">Response will appear here...</div>
+    </div>
+
+    <script>
+        async function sendMessage(){
+            const user_msg=document.getElementById('userInput').value;
+            const output_area=document.getElementById('output');
+
+            if (!user_msg) return;
+            output_area.innerText='Thinking....'
+
+            // sending a post message to backend to get the reply
+            try{
+                const response=await fetch('http://127.0.0.1:8000/app/chat-backend',
+                    {
+                        method:'POST',
+                        headers:{
+                            'Content-Type':'application/json'
+                        },
+                        body: JSON.stringify({user_msg:user_msg})
+                    }
+                );
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                
+                const reader=response.body.getReader();
+                const decoder=new TextDecoder();
+
+                while (true){
+                    const {value,done}=await reader.read();
+                    if(done) break;
+
+                    const chunk=decoder.decode(value,{stream:true});
+                    output_area.innerText+=chunk;
+                }
+            }
+            catch(error){
+                output_area.innerText='Sry, We cant able to connect with backend';
+                console.log(error);
+            }
+    }
+</script>
+
+</body>
+</html>
