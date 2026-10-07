@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Chatbot</title>
+<style>
+  :root {
+    --bg:#ffffff; --side:#f4f5f7; --hover:#e8eaee; --ink:#1b1e24; --muted:#6a7080; --line:#dfe2e8;
+    --card:#f1f3f6; --accent:#3b6fe0; --accent-ink:#fff; --code:#14171c; --code-ink:#e6e9ef; --err:#c0392b;
+    --font:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#17191e; --side:#1e2127; --hover:#2a2e36; --ink:#e8eaef; --muted:#9097a6; --line:#2e323b;
+      --card:#23262d; --accent:#7a9cf0; --accent-ink:#101a33; --code:#0f1115; --err:#ee7b6e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#17191e; --side:#1e2127; --hover:#2a2e36; --ink:#e8eaef; --muted:#9097a6; --line:#2e323b;
+    --card:#23262d; --accent:#7a9cf0; --accent-ink:#101a33; --code:#0f1115; --err:#ee7b6e;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { font-family:var(--font); background:var(--bg); color:var(--ink); display:flex; font-size:16px; overflow:hidden; }
+  button { font:inherit; color:inherit; cursor:pointer; background:none; border:0; }
+  button:focus-visible,textarea:focus-visible,a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .icon { width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .ibtn { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; color:var(--muted); }
+  .ibtn:hover { background:var(--hover); color:var(--ink); }
+
+  /* sidebar */
+  #side { width:272px; background:var(--side); display:flex; flex-direction:column; padding:10px; gap:6px; transition:margin .2s; flex:none; }
+  #side.closed { margin-left:-272px; }
+  .side-top { display:flex; justify-content:space-between; align-items:center; }
+  .newchat { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; width:100%; text-align:left; font-weight:500; }
+  .newchat:hover { background:var(--hover); }
+  .label { font-size:13px; color:var(--muted); padding:12px 12px 4px; }
+  #convs { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+  .conv { display:flex; align-items:center; border-radius:10px; position:relative; }
+  .conv:hover,.conv.active { background:var(--hover); }
+  .conv .t { flex:1; text-align:left; padding:9px 12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; }
+  .conv .del { opacity:0; width:30px; height:30px; margin-right:4px; border-radius:6px; display:grid; place-items:center; color:var(--muted); }
+  .conv:hover .del,.conv .del:focus-visible { opacity:1; }
+  .conv .del:hover { color:var(--err); }
+  .none { font-size:14px; color:var(--muted); padding:8px 12px; }
+
+  /* main */
+  #main { flex:1; display:flex; flex-direction:column; min-width:0; height:100%; }
+  .top { display:flex; align-items:center; gap:8px; padding:10px 14px; }
+  .top .title { font-weight:600; flex:1; }
+  #scroll { flex:1; overflow-y:auto; scroll-behavior:smooth; }
+  .col { max-width:760px; margin:0 auto; padding:8px 20px 24px; display:flex; flex-direction:column; gap:26px; }
+
+  .hero { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:24px; padding:20px; }
+  .hero h1 { font-size:34px; margin:0; font-weight:600; letter-spacing:-.02em; }
+  .chips { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:640px; }
+  .chip { background:var(--card); border-radius:14px; padding:12px 16px; font-size:15px; text-align:left; }
+  .chip:hover { background:var(--hover); }
+
+  .u { align-self:flex-end; background:var(--card); padding:10px 16px; border-radius:20px; max-width:80%; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; }
+  .a { display:flex; gap:14px; }
+  .spark { width:30px; height:30px; border-radius:50%; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; flex:none; margin-top:2px; }
+  .spark .icon { width:16px; height:16px; }
+  .abody { flex:1; min-width:0; line-height:1.7; overflow-wrap:anywhere; }
+  .abody > :first-child { margin-top:0; } .abody > :last-child { margin-bottom:0; }
+  .abody p { margin:0 0 12px; } .abody ul,.abody ol { margin:0 0 12px; padding-left:24px; } .abody li { margin:3px 0; }
+  .abody h1,.abody h2,.abody h3 { margin:18px 0 8px; line-height:1.3; } .abody h1 { font-size:22px; } .abody h2 { font-size:19px; } .abody h3 { font-size:17px; }
+  .abody a { color:var(--accent); }
+  .abody code { background:var(--card); padding:2px 6px; border-radius:6px; font-size:.9em; font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .abody pre { background:var(--code); color:var(--code-ink); border-radius:12px; padding:14px 16px; overflow-x:auto; margin:0 0 12px; }
+  .abody pre code { background:none; padding:0; color:inherit; font-size:14px; }
+  .tool { display:inline-flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); background:var(--card); border-radius:999px; padding:5px 12px; margin-bottom:10px; }
+  .tool.run::before { content:""; width:10px; height:10px; border-radius:50%; border:2px solid var(--muted); border-top-color:transparent; animation:spin .8s linear infinite; }
+  .dots { display:inline-flex; gap:5px; padding:8px 0; }
+  .dots i { width:8px; height:8px; border-radius:50%; background:var(--muted); animation:pulse 1.2s infinite; }
+  .dots i:nth-child(2){animation-delay:.2s} .dots i:nth-child(3){animation-delay:.4s}
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulse { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+  .acts { display:flex; gap:2px; margin-top:6px; }
+  .acts .ibtn { width:30px; height:30px; }
+  .err { color:var(--err); }
+
+  /* composer */
+  .composer { max-width:760px; width:100%; margin:0 auto; padding:0 20px 14px; }
+  .box { background:var(--card); border-radius:26px; padding:10px 12px 8px 16px; border:1px solid transparent; }
+  .box:focus-within { border-color:var(--line); }
+  textarea { width:100%; border:0; background:transparent; color:var(--ink); font:inherit; resize:none; max-height:200px; padding:6px 0; outline:none; line-height:1.5; }
+  textarea::placeholder { color:var(--muted); }
+  .tools { display:flex; align-items:center; gap:6px; }
+  .grow { flex:1; }
+  .file { display:inline-flex; align-items:center; gap:8px; font-size:14px; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:4px 12px; max-width:60%; }
+  .file span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #send { width:36px; height:36px; border-radius:50%; background:var(--ink); color:var(--bg); display:grid; place-items:center; }
+  #send:disabled { opacity:.3; cursor:default; }
+  .foot { text-align:center; font-size:12px; color:var(--muted); padding-top:8px; }
+
+  @media (max-width:760px) {
+    #side { position:fixed; z-index:10; inset:0 auto 0 0; height:100%; box-shadow:0 0 40px rgba(0,0,0,.3); }
+    .hero h1 { font-size:26px; } .u { max-width:92%; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21 11l-9 9a5 5 0 01-7-7l9-9a3.5 3.5 0 015 5l-9 9a2 2 0 01-3-3l8-8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></symbol>
+</defs></svg>
+
+<aside id="side">
+  <div class="side-top">
+    <button class="ibtn" id="closeSide" aria-label="Close sidebar"><svg class="icon"><use href="#i-menu"/></svg></button>
+  </div>
+  <button class="newchat" id="newChat"><svg class="icon"><use href="#i-edit"/></svg>New chat</button>
+  <div class="label">Chats</div>
+  <div id="convs"></div>
+</aside>
+
+<div id="main">
+  <div class="top">
+    <button class="ibtn" id="openSide" aria-label="Open sidebar"><svg class="icon"><use href="#i-menu"/></svg></button>
+    <div class="title">RAG Chatbot</div>
+    <button class="ibtn" id="theme" aria-label="Toggle theme"><svg class="icon"><use href="#i-moon"/></svg></button>
+  </div>
+
+  <div id="scroll"><div id="view"></div></div>
+
+  <div class="composer">
+    <div class="box">
+      <textarea id="input" rows="1" placeholder="Ask anything about your PDF, or search, calculate, check stocks"></textarea>
+      <div class="tools">
+        <button class="ibtn" id="attach" aria-label="Attach a PDF" title="Attach a PDF"><svg class="icon"><use href="#i-clip"/></svg></button>
+        <input type="file" id="pdf" accept="application/pdf" hidden>
+        <div id="fileChip"></div>
+        <div class="grow"></div>
+        <button id="send" aria-label="Send" disabled><svg class="icon"><use href="#i-up"/></svg></button>
+      </div>
+    </div>
+    <div class="foot">Answers can be wrong. Check important details.</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const view = $("view"), scroller = $("scroll"), input = $("input"), sendBtn = $("send");
+const uuid = () => crypto.randomUUID ? crypto.randomUUID() :
+  "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==="x"?r:(r&3|8)).toString(16); });
+const ic = (n) => `<svg class="icon"><use href="#i-${n}"/></svg>`;
+
+let threadId = uuid(), busy = false, ctrl = null, threads = [];
+
+/* ---------- tiny safe markdown ---------- */
+const esc = (s) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function md(src) {
+  const blocks = [];
+  src = src.replace(/```[^\n`]*\n?([\s\S]*?)(```|$)/g, (m, c) => { blocks.push(c.replace(/\n$/, "")); return `\n\u0000${blocks.length-1}\u0000\n`; });
+  src = esc(src);
+  const inl = (t) => t.replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  const out = []; let list = null, para = [];
+  const flushP = () => { if (para.length) { out.push("<p>" + inl(para.join("<br>")) + "</p>"); para = []; } };
+  const flushL = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  for (const line of src.split("\n")) {
+    let m;
+    if ((m = line.match(/^\u0000(\d+)\u0000$/))) { flushP(); flushL(); out.push("<pre><code>" + esc(blocks[+m[1]]) + "</code></pre>"); }
+    else if ((m = line.match(/^(#{1,3})\s+(.*)$/))) { flushP(); flushL(); out.push(`<h${m[1].length}>${inl(m[2])}</h${m[1].length}>`); }
+    else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) { flushP(); if (list !== "ul") { flushL(); out.push("<ul>"); list = "ul"; } out.push("<li>" + inl(m[1]) + "</li>"); }
+    else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) { flushP(); if (list !== "ol") { flushL(); out.push("<ol>"); list = "ol"; } out.push("<li>" + inl(m[1]) + "</li>"); }
+    else if (!line.trim()) { flushP(); flushL(); }
+    else { flushL(); para.push(line); }
+  }
+  flushP(); flushL();
+  return out.join("");
+}
+
+/* ---------- rendering ---------- */
+const SUGGEST = [
+  "Summarize the PDF I attached",
+  "Search the web for the latest AI news",
+  "What is the current AAPL stock price?",
+  "What is 245 multiplied by 18?"
+];
+
+function showHero() {
+  view.innerHTML = `<div class="hero"><h1>What can I help with?</h1><div class="chips"></div></div>`;
+  const chips = view.querySelector(".chips");
+  SUGGEST.forEach(s => { const b = document.createElement("button"); b.className = "chip"; b.textContent = s; b.onclick = () => submit(s); chips.appendChild(b); });
+}
+function ensureCol() {
+  let c = view.querySelector(".col");
+  if (!c) { view.innerHTML = '<div class="col"></div>'; c = view.querySelector(".col"); }
+  return c;
+}
+function addUser(text) {
+  const d = document.createElement("div"); d.className = "u"; d.textContent = text; ensureCol().appendChild(d); toBottom();
+}
+function addAssistant(text = "") {
+  const row = document.createElement("div"); row.className = "a";
+  row.innerHTML = `<div class="spark">${ic("star")}</div><div class="abody"></div>`;
+  const body = row.querySelector(".abody");
+  if (text) { body.innerHTML = md(text); addActions(row, body, text); }
+  ensureCol().appendChild(row); toBottom();
+  return { row, body };
+}
+function addActions(row, body, text) {
+  const acts = document.createElement("div"); acts.className = "acts";
+  const b = document.createElement("button"); b.className = "ibtn"; b.title = "Copy"; b.setAttribute("aria-label", "Copy reply"); b.innerHTML = ic("copy");
+  b.onclick = () => { navigator.clipboard.writeText(text); b.title = "Copied"; setTimeout(() => b.title = "Copy", 1500); };
+  acts.appendChild(b); body.appendChild(acts);
+}
+function toBottom() { scroller.scrollTop = scroller.scrollHeight; }
+
+function setDoc(doc) {
+  const chip = $("fileChip");
+  chip.innerHTML = "";
+  if (doc && doc.filename) {
+    const d = document.createElement("div"); d.className = "file";
+    d.innerHTML = ic("doc"); const s = document.createElement("span"); s.textContent = `${doc.filename} · ${doc.chunks} chunks`; d.appendChild(s);
+    chip.appendChild(d);
+  }
+}
+
+function renderThreads() {
+  const box = $("convs"); box.innerHTML = "";
+  if (!threads.length) { box.innerHTML = '<div class="none">Your chats will show up here.</div>'; return; }
+  threads.forEach(t => {
+    const row = document.createElement("div"); row.className = "conv" + (t.id === threadId ? " active" : "");
+    const b = document.createElement("button"); b.className = "t"; b.textContent = t.title; b.title = t.title; b.onclick = () => openThread(t.id);
+    const del = document.createElement("button"); del.className = "del"; del.setAttribute("aria-label", "Delete chat"); del.innerHTML = ic("trash");
+    del.onclick = (e) => { e.stopPropagation(); removeThread(t.id); };
+    row.append(b, del); box.appendChild(row);
+  });
+}
+async function loadThreads() {
+  try { threads = await (await fetch("/api/threads")).json(); } catch { threads = []; }
+  renderThreads();
+}
+
+/* ---------- actions ---------- */
+async function openThread(id) {
+  if (busy) return;
+  threadId = id; renderThreads();
+  const data = await (await fetch("/api/threads/" + id)).json();
+  view.innerHTML = "";
+  if (!data.messages.length) showHero();
+  data.messages.forEach(m => m.role === "user" ? addUser(m.content) : addAssistant(m.content));
+  setDoc(data.document); toBottom();
+  if (innerWidth <= 760) $("side").classList.add("closed");
+}
+function newChat() {
+  if (busy) return;
+  threadId = uuid(); showHero(); setDoc(null); renderThreads(); input.focus();
+  if (innerWidth <= 760) $("side").classList.add("closed");
+}
+async function removeThread(id) {
+  if (!confirm("Delete this chat?")) return;
+  await fetch("/api/threads/" + id, { method: "DELETE" });
+  if (id === threadId) newChat();
+  loadThreads();
+}
+
+$("pdf").onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const chip = $("fileChip"); chip.innerHTML = `<div class="file"><span>Indexing ${esc(file.name)}…</span></div>`;
+  const fd = new FormData(); fd.append("file", file); fd.append("thread_id", threadId);
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    setDoc(data);
+  } catch (err) {
+    chip.innerHTML = ""; const d = document.createElement("div"); d.className = "file err"; d.textContent = "Upload failed: " + err.message; chip.appendChild(d);
+  }
+  e.target.value = "";
+};
+
+function setBusy(b) {
+  busy = b;
+  sendBtn.innerHTML = ic(b ? "stop" : "up");
+  sendBtn.setAttribute("aria-label", b ? "Stop" : "Send");
+  sendBtn.disabled = b ? false : !input.value.trim();
+}
+
+async function submit(text) {
+  text = (text ?? input.value).trim();
+  if (!text || busy) return;
+  input.value = ""; input.style.height = "auto";
+  addUser(text);
+  const { row, body } = addAssistant();
+  body.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  setBusy(true); ctrl = new AbortController();
+  let acc = "", tool = null;
+  const paint = () => { body.innerHTML = ""; if (tool) body.appendChild(tool); const c = document.createElement("div"); c.innerHTML = md(acc); body.append(...c.childNodes); };
+  try {
+    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, signal: ctrl.signal, body: JSON.stringify({ thread_id: threadId, message: text }) });
+    if (!res.ok) throw new Error("Server returned " + res.status);
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split("\n\n"); buf = parts.pop();
+      for (const p of parts) {
+        if (!p.startsWith("data: ")) continue;
+        const ev = JSON.parse(p.slice(6));
+        if (ev.type === "token") { acc += ev.text; paint(); }
+        else if (ev.type === "tool") { tool = document.createElement("div"); tool.className = "tool run"; tool.textContent = `Using ${ev.name}`; paint(); }
+        else if (ev.type === "tool_done" && tool) { tool.className = "tool"; tool.textContent = `Used ${ev.name}`; }
+        else if (ev.type === "error") { acc += `\n\nSomething went wrong: ${ev.message}`; paint(); body.classList.add("err"); }
+        toBottom();
+      }
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") { body.classList.add("err"); body.textContent = "Could not reach the server: " + err.message; }
+  }
+  if (acc) { paint(); addActions(row, body, acc); }
+  else if (!body.classList.contains("err")) body.innerHTML = '<span style="color:var(--muted)">Stopped.</span>';
+  ctrl = null; setBusy(false); input.focus();
+  if (!threads.some(t => t.id === threadId)) threads.unshift({ id: threadId, title: text.length > 40 ? text.slice(0, 40) + "..." : text });
+  renderThreads(); loadThreads();
+}
+
+sendBtn.onclick = () => busy ? ctrl && ctrl.abort() : submit();
+input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; if (!busy) sendBtn.disabled = !input.value.trim(); });
+input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); } });
+$("attach").onclick = () => $("pdf").click();
+$("newChat").onclick = newChat;
+$("closeSide").onclick = () => $("side").classList.add("closed");
+$("openSide").onclick = () => $("side").classList.toggle("closed");
+$("theme").onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+};
+
+if (innerWidth <= 760) $("side").classList.add("closed");
+showHero(); loadThreads(); setBusy(false);
+</script>
+</body>
+</html>
