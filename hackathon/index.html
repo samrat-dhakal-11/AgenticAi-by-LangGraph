@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chat</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.5;
+            color: #222;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .section {
+            margin-bottom: 32px;
+            padding: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        button {
+            padding: 6px 14px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 14px;
+        }
+        button:hover:not(:disabled) { background: #f0f0f0; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        input[type="text"] {
+            width: 60%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        #paragraph {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+        #answer {
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fff;
+            min-height: 60px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- File Upload Section -->
+    <div class="section">
+        <h2>Upload Document</h2>
+        <b>Choose a file to load into the RAG system</b>
+        <br><br>
+        <input type="file" accept=".pdf,.txt,.json,.docx,.html,.py" id="files" />
+        <button onclick="uploadd()" id="uploadBtn">Upload</button>
+        <p id="paragraph"></p>
+    </div>
+
+    <!-- Chatting Section -->
+    <div class="section">
+        <h2>Ask Questions</h2>
+        <input type="text" id="qsn" placeholder="Enter your question about the document" />
+        <button onclick="chat()" id="chatBtn">Ask</button>
+        <div id="answer"></div>
+    </div>
+
+<script>
+    // ============================================================
+    // FILE UPLOAD
+    // ============================================================
+    async function uploadd() {
+        const fileInput = document.getElementById('files');
+        const disarea   = document.getElementById('paragraph');
+        const btn       = document.getElementById('uploadBtn');
+
+        if (fileInput.files.length === 0) {
+            disarea.innerText = 'Attach a file first.';
+            return;
+        }
+
+        const file     = fileInput.files[0];
+        const formdata = new FormData();
+        formdata.append('file', file);
+
+        btn.disabled      = true;
+        disarea.innerText = 'Uploading...';
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/app/upload', {
+                method: 'POST',
+                body: formdata
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(result.detail || `HTTP ${response.status}`);
+            }
+
+            disarea.innerText = `Uploaded successfully: ${result.filename || file.name}`;
+            fileInput.value   = '';   // reset input so user can re-upload same file
+        } catch (error) {
+            disarea.innerText = `Failed to upload: ${error.message}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // CHAT (streaming)
+    // ============================================================
+    async function chat() {
+        const user_query= document.getElementById('qsn').value.trim();
+        const display_answer = document.getElementById('answer');
+        const btn = document.getElementById('chatBtn');
+
+        if (!user_query) {
+            display_answer.innerText = 'Ask a question first.';
+            return;
+        }
+
+        btn.disabled = true;
+        display_answer.innerText = 'Thinking...';
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/app:chat-backend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_query: user_query })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${response.status}`);
+            }
+
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let full       = '';
+            let firstChunk = true;
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                if (firstChunk) {
+                    display_answer.innerText = '';
+                    firstChunk = false;
+                }
+
+                full += decoder.decode(value, { stream: true });
+                display_answer.innerText = full;
+            }
+
+            if (!full) {
+                display_answer.innerText = '(No response from backend)';
+            }
+        } catch (error) {
+            display_answer.innerText = `Backend error: ${error.message}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // Allow Enter key to submit chat
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('qsn');
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    chat();
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

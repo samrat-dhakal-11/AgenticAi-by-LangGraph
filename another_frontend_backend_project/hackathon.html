@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniGuide AI Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f1724;
+      color: #e6edf7;
+      height: 100vh;
+      display: flex;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 210px;
+      background: #162134;
+      padding: 24px 16px;
+    }
+    .logo { text-align: center; margin-bottom: 30px; }
+    .logo h2 { color: #4da3ff; font-size: 20px; }
+    .nav-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      color: #c5d1e4;
+      padding: 12px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .nav-btn:hover, .nav-btn.active { background: #223250; color: #4da3ff; }
+
+    /* Main area */
+    .main { flex: 1; padding: 24px 30px; overflow-y: auto; }
+    .header h1 { font-size: 26px; }
+    .header p { color: #8fa3c0; margin: 4px 0 20px; }
+
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+
+    .card {
+      background: #1c2a40;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h3 { margin-bottom: 14px; }
+
+    /* Form */
+    .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .field { flex: 1; min-width: 160px; }
+    label { display: block; font-size: 13px; color: #8fa3c0; margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #304565;
+      background: #0f1724;
+      color: #e6edf7;
+      font-size: 14px;
+    }
+    button.primary {
+      background: #4da3ff;
+      color: #0f1724;
+      border: none;
+      padding: 11px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button.primary:hover { background: #7cbcff; }
+
+    /* Milestones */
+    .milestones { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .milestone {
+      flex: 1;
+      min-width: 150px;
+      background: #0f1724;
+      border-radius: 10px;
+      padding: 14px;
+      border-left: 4px solid #4da3ff;
+      font-size: 14px;
+    }
+    .milestone span { font-size: 12px; color: #8fa3c0; }
+
+    /* Chat */
+    .chat-box {
+      height: 240px;
+      overflow-y: auto;
+      background: #0f1724;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .msg { margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
+    .msg.user { color: #7cbcff; }
+    .msg.bot { color: #c5d1e4; }
+    .chat-input { display: flex; gap: 8px; }
+    .chat-input input { flex: 1; }
+  </style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="logo"><h2>UniGuide AI</h2></div>
+    <button class="nav-btn active" onclick="setActive(this)">Dashboard</button>
+    <button class="nav-btn" onclick="setActive(this)">Career Path</button>
+    <button class="nav-btn" onclick="setActive(this)">Project Ideas</button>
+    <button class="nav-btn" onclick="setActive(this)">Study Planner</button>
+    <button class="nav-btn" onclick="setActive(this)">Settings</button>
+  </aside>
+
+  <main class="main">
+    <div class="header">
+      <h1>Welcome, Alex!</h1>
+      <p>Your AI Mentor is ready.</p>
+    </div>
+
+    <!-- Roadmap Generator -->
+    <div class="card">
+      <h3>Roadmap Generator</h3>
+      <div class="row">
+        <div class="field">
+          <label for="skills">Your Current Skills</label>
+          <input id="skills" type="text" placeholder="e.g. Python, React">
+        </div>
+        <div class="field">
+          <label for="goal">Your Target Goal</label>
+          <input id="goal" type="text" placeholder="e.g. AI Engineer">
+        </div>
+        <button class="primary" onclick="generatePath()">Generate My Path</button>
+      </div>
+      <div class="milestones" id="milestones"></div>
+    </div>
+
+    <div class="grid">
+      <!-- Project Ideas -->
+      <div class="card">
+        <h3>Hackathon Project Spark</h3>
+        <ul>
+          <li>EcoTrack: AI waste sorting assistant</li>
+          <li>StudyBuddy: RAG-based note helper</li>
+          <li>QuantifyR: Personal finance analyzer</li>
+        </ul>
+      </div>
+
+      <!-- Mentor Chat -->
+      <div class="card">
+        <h3>Quick Chat with Mentor</h3>
+        <div class="chat-box" id="chatBox">
+          <div class="msg bot">UniGuide AI: Hi Alex! Ask me anything about your learning path.</div>
+        </div>
+        <div class="chat-input">
+          <input id="chatInput" type="text" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendMessage()">
+          <button class="primary" onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 1. Switch the highlighted sidebar button
+    function setActive(button) {
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+    }
+
+    // 2. Build a simple roadmap from the user's inputs
+    function generatePath() {
+      const skills = document.getElementById('skills').value.trim() || 'Python';
+      const goal = document.getElementById('goal').value.trim() || 'AI Engineer';
+
+      const steps = [
+        { title: 'Master ' + skills, note: 'Strengthen the basics first' },
+        { title: 'Learn ML Fundamentals', note: 'Study core machine learning ideas' },
+        { title: 'Build 3 AI Projects', note: 'Apply what you learned' },
+        { title: 'Specialize for ' + goal, note: 'Focus on your target role' }
+      ];
+
+      const container = document.getElementById('milestones');
+      container.innerHTML = '';
+
+      steps.forEach((step, index) => {
+        const box = document.createElement('div');
+        box.className = 'milestone';
+        box.innerHTML = '<strong>' + (index + 1) + '. ' + step.title + '</strong><br><span>' + step.note + '</span>';
+        container.appendChild(box);
+      });
+    }
+
+    // 3. Simple mentor chat
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (text === '') return;
+
+      addMessage(text, 'user');
+      input.value = '';
+
+      setTimeout(() => addMessage(getReply(text), 'bot'), 400);
+    }
+
+    function getReply(text) {
+      const t = text.toLowerCase();
+      if (t.includes('stuck')) return 'No worries! Break the problem into small steps and try one at a time.';
+      if (t.includes('project')) return 'Try a small RAG chatbot or a personal finance tracker. Start simple!';
+      if (t.includes('hello') || t.includes('hi')) return 'Hello! What would you like to learn today?';
+      return 'Great question! Tell me more about what you are working on.';
+    }
+
+    function addMessage(text, who) {
+      const box = document.getElementById('chatBox');
+      const msg = document.createElement('div');
+      msg.className = 'msg ' + who;
+      msg.textContent = (who === 'user' ? 'Alex: ' : 'UniGuide AI: ') + text;
+      box.appendChild(msg);
+      box.scrollTop = box.scrollHeight;
+    }
+  </script>
+
+</body>
+</html>
