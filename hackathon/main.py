@@ -4,6 +4,7 @@
 import os
 import tempfile
 import requests
+import json
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
+
 
 from llama_parse import LlamaParse
 
@@ -123,7 +125,7 @@ def ragtool(query: str) -> str:
 
     retriever = vectorstore.as_retriever(
         search_type="similarity",
-        search_kwargs={"k": 4},
+        search_kwargs={"k": 10},
     )
     results = retriever.invoke(query)
     if not results:
@@ -184,7 +186,6 @@ def get_stock_price(symbol: str) -> dict:
 
 
 # ----- Tavily (optional) -----
-# TavilySearch reads TAVILY_API_KEY from the environment by default,
 # and its tool name is "tavily_search".
 try:
     search_tool = TavilySearch(max_results=5)
@@ -247,17 +248,30 @@ async def receive_and_parse_files(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         filename = file.filename or "unknown_file"
-        suffix = os.path.splitext(filename)[1] or ".pdf"
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(contents)
-            tmp_path = tmp.name
-
-        # Async parse so the event loop isn't blocked on large files
-        parse_result = await parser.aload_data(tmp_path, extra_info={"filename": filename})
-        parsed_text = "\n".join(d.text for d in parse_result)
-
-        doc.set_doc(filename, parsed_text)
+        suffix = os.path.splitext(filename)[1].lower() or ".pdf"
+        
+        if(suffix=='.json'):
+            data =  await json.loads(contents.decode("utf-8"))
+            
+            if isinstance(data, list):
+                jsondata = "\n".join(str(d.get("text", "")) for d in data)
+            elif isinstance(data, dict):
+                jsondata = json.dumps(data, indent=2)
+            else:
+                jsondata = str(data)
+            doc.set_doc(filename,jsondata)
+               
+        else:  
+            with tempfile.NamedTemporaryFile(delete=False,suffix=suffix) as tmp:
+                tmp.write(contents)
+                tmp_path=tmp.name
+            
+            # Async parse so the event loop isn't blocked on large files  
+            parse_result = await parser.aload_data(tmp_path, extra_info={"filename": filename})
+        
+            parsed_text = "\n".join(d.text for d in parse_result)
+            doc.set_doc(filename, parsed_text)
+            
         split_document()
 
         return {"filename": filename, "status": "success"}
