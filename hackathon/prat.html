@@ -3,18 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Upload</title>
+    <title>Nepal AI Document & Communication Assistant</title>
 </head>
 <body>
-    <h2>Enter your Image Below:</h2>
-    <span>Image:</span>
-    <input type="file"  id="file" multiple accept="image/*,text/*,application/pdf,application/json,.doc,.docx,.xls,.xlsx,.zip">
-    <br>
-    <button onclick="submit()" style="margin: 50px;" id ='btn'>Upload</button>
 
-    <h2>See your Image Details:</h2>
+    <h1>Nepal AI Document & Government Communication Portal</h1>
 
-    <p id="outarea"></p>
+    <!-- Upload Image or File -->
+    <div class="section">
+        <h2>1. Upload File / Image:</h2>
+        <span>Select File:</span>
+        <input type="file" id="file" accept="image/*,text/*,application/pdf,application/json,.doc,.docx,.xls,.xlsx">
+        <button onclick="uploadfile()" id="btn">Upload</button>
+        <p id="status"></p>
+    </div>
 
+    <!-- See Info -->
+    <div class="section">
+        <h2>2. Analyze File Details:</h2>
+        <button id="btn2" onclick="detail()">See File Details</button>
+        <br>
+        <p id="outarea"></p>
+    </div>
+
+    <!-- Chat Section -->
+    <div class="section">
+        <h2>3. Chat & Government Action Assistant:</h2>
+        <p><i>(Ask questions, search official contact info in Nepal, or request to draft/send emails)</i></p>
+        <span>Enter Question / Prompt:</span>
+        <input type="text" id="userqsn" placeholder="e.g., Send an email to the Ministry of Physical Infrastructure..." style="width: 70%;">
+        <button id="ask" onclick="ask()">Ask</button>
+        <br>
+        <p id="contentarea"></p>
+    </div>
+
+<script>
+    const THREAD_ID = "1234";
+
+    async function uploadfile() {
+        const fileInput = document.getElementById('file');
+        const btn = document.getElementById('btn');
+        const dis_msg = document.getElementById('status');
+
+        if (fileInput.files.length === 0) {
+            dis_msg.innerText = 'Attach File First Bro!!';
+            return;
+        }
+
+        btn.disabled = true;
+        const file = fileInput.files[0];
+        dis_msg.innerText = 'Uploading.....';
+
+        const formdata = new FormData();
+        formdata.append('file', file);
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/app/upload', {
+                method: 'POST',
+                body: formdata
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result.detail || `Http ${response.status}`);
+            }
+            dis_msg.innerText = 'Upload Successful: ' + (result.filename || '');
+            fileInput.value = '';
+        } catch (error) {
+            dis_msg.innerText = `Error is ${error}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function detail() {
+        const btn = document.getElementById('btn2');
+        const dis_msg = document.getElementById('outarea');
+
+        btn.disabled = true;
+        dis_msg.innerText = 'Generating details.....';
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/app/response', {
+                method: 'POST'
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result.detail || `Http ${response.status}`);
+            }
+            dis_msg.innerText = result.reply;
+        } catch (error) {
+            dis_msg.innerText = `Error is ${error}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function ask() {
+        const userInput = document.getElementById('userqsn').value;
+        const btn = document.getElementById('ask');
+        const dis_msg = document.getElementById('contentarea');
+
+        if (!userInput) {
+            dis_msg.innerText = 'Enter question First';
+            return;
+        }
+
+        btn.disabled = true;
+        dis_msg.innerText = 'Generating.....';
+
+        try {
+            const response = await fetch('http://127.0.0.1:8000/app/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    'UserQuery': userInput,
+                    'thread_id': THREAD_ID
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Network Connection Error With Backend`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let full = '';
+            let firstChunk = true;
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                if (firstChunk) {
+                    dis_msg.innerText = '';
+                    firstChunk = false;
+                }
+
+                const chunkText = decoder.decode(value, { stream: true });
+                full += chunkText;
+                dis_msg.innerText += chunkText;
+            }
+
+            if (!full) {
+                dis_msg.innerText = '(No response from backend)';
+            }
+
+        } catch (error) {
+            dis_msg.innerText = `Error is ${error}`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
 </body>
 </html>

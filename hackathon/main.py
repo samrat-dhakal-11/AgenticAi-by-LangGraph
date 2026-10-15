@@ -273,6 +273,8 @@ async def receive_and_parse_files(file: UploadFile = File(...)):
             doc.set_doc(filename, parsed_text)
             
         split_document()
+        
+        
 
         return {"filename": filename, "status": "success"}
 
