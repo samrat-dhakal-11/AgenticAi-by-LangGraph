@@ -5,3 +5,4 @@ __pycache__
 chatbot.db
 chatbot_langgraph.db
 mcp_based_db.db
+docker-compose.yml
